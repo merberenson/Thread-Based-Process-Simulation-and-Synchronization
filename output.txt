@@ -1,0 +1,7 @@
+Process 1 started (Priority: 2)
+Process 2 started (Priority: 1)
+Process 3 started (Priority: 3)
+Process 1 finished.
+Process 2 finished.
+Process 3 finished.
+All processes have completed.
