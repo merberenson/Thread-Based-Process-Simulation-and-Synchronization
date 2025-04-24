@@ -37,18 +37,6 @@ void producer(const std::string& filename) {
         std::lock_guard<std::mutex> lock(mtx);
         return;
     }
-}
-
-int main() {
-    std::ifstream infile("processes.txt");
-    std::string line;
-    std::vector<Process> processList;
-    std::vector<std::thread> threads;
-
-    if (!infile) {
-        std::cerr << "Failed to open processes.txt" << std::endl;
-        return 1;
-    }
 
     std::getline(infile, line);
 
@@ -63,6 +51,13 @@ int main() {
     for (const auto& p : processList) {
         threads.emplace_back(simulateProcess, p);
     }
+}
+
+int main() {
+    std::ifstream infile("processes.txt");
+    std::string line;
+    std::vector<Process> processList;
+    std::vector<std::thread> threads;
 
     for (auto& t : threads) {
         if (t.joinable()) {
