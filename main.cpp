@@ -4,6 +4,9 @@
 #include <thread>
 #include <vector>
 #include <chrono>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 struct Process {
     int pid;
