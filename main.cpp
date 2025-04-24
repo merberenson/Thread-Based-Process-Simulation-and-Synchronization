@@ -15,11 +15,28 @@ struct Process {
     int priority;
 };
 
+const size_t MAX_BUFFER_SIZE = 5;
+std::queue<Process> processQueue;
+std::mutex mtx;
+std::condition_variable cv;
+bool doneProducing = false;
+
+
 void simulateProcess(const Process& p) {
     std::this_thread::sleep_for(std::chrono::seconds(p.arrivalTime));
     std::cout << "Process " << p.pid << " started (Priority: " << p.priority << ")" << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(p.burstTime));
     std::cout << "Process " << p.pid << " finished." << std::endl;
+}
+
+void producer(const std::string& filename) {
+    std::ifstream infile(filename);
+    std::string line;
+    if (!infile) {
+        std::cerr << "Failed to open processes.txt" << std::endl;
+        std::lock_guard<std::mutex> lock(mtx);
+        return;
+    }
 }
 
 int main() {
