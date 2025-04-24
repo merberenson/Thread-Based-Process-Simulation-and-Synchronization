@@ -35,6 +35,8 @@ void producer(const std::string& filename) {
     if (!infile) {
         std::cerr << "Failed to open processes.txt" << std::endl;
         std::lock_guard<std::mutex> lock(mtx);
+        doneProducing = true;
+        cv.notify_all();
         return;
     }
 
@@ -46,20 +48,62 @@ void producer(const std::string& filename) {
         if (!(iss >> p.pid >> p.arrivalTime >> p.burstTime >> p.priority)) {
             continue;
         }
+
+        std::unique_lock<std::mutex> lock(mtx); 
+        cv.wait(lock, [] {
+            return processQueue.size() < MAX_BUFFER_SIZE;
+        });
+
+        processQueue.push(p);
+        // Add output here for producer
+
+        cv.notify_all();
     }
 
-    for (const auto& p : processList) {
-        threads.emplace_back(simulateProcess, p);
+    std::lock_guard<std::mutex> lock(mtx);
+    doneProducing = true;
+    cv.notify_all();
+}
+
+
+void consumer (int id) {
+    while (true) {
+        Process p;
+        { // Creats block scope
+            std::unique_lock<std::mutex> lock(mtx);
+            cv.wait(lock, [] {
+                return !processQueue.empty() || doneProducing;
+            });
+
+            if (processQueue.empty() && doneProducing) {
+                return;
+            }
+
+            p = processQueue.front();
+            processQueue.pop();
+            cv.notify_all();
+        }
+
+        std::this_thread::sleep_for(std::chrono::seconds(p.arrivalTime));
+        std::cout << "[Consumer " << id << "] Started Process " << p.pid << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(p.burstTime));
+        std::cout << "[Consumer " << id << "] Finished Process " << p.pid << "\n";
     }
 }
 
 int main() {
-    std::ifstream infile("processes.txt");
-    std::string line;
-    std::vector<Process> processList;
-    std::vector<std::thread> threads;
+    const int NUM_CONSUMERS = 3;
 
-    for (auto& t : threads) {
+    std::thread prodThread(producer, "processes.txt");
+
+    std::vector<std::thread> consumers;
+    for (int i = 0; i < NUM_CONSUMERS; ++i) {
+        consumers.emplace_back(consumer, i + 1);
+    }
+
+
+    prodThread.join();
+    for (auto& t : consumers) {
         if (t.joinable()) {
             t.join();
         }
