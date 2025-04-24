@@ -43,8 +43,8 @@ void producer(const std::string& filename) {
     while (std::getline(infile, line)) {
         std::istringstream iss(line);
         Process p;
-        if (iss >> p.pid >> p.arrivalTime >> p.burstTime >> p.priority) {
-            processList.push_back(p);
+        if (!(iss >> p.pid >> p.arrivalTime >> p.burstTime >> p.priority)) {
+            continue;
         }
     }
 
