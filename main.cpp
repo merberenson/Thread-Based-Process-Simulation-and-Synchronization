@@ -15,11 +15,12 @@ struct Process {
     int priority;
 };
 
+// Global Variables
 const size_t MAX_BUFFER_SIZE = 5;
-std::queue<Process> processQueue;
+std::queue<Process> processQueue; 
 std::mutex mtx;
 std::condition_variable cv;
-bool doneProducing = false;
+bool producerDone = false;
 
 
 void simulateProcess(const Process& p) {
@@ -29,18 +30,21 @@ void simulateProcess(const Process& p) {
     std::cout << "Process " << p.pid << " finished." << std::endl;
 }
 
+// Reads process from file and adds them to queue
 void producer(const std::string& filename) {
     std::ifstream infile(filename);
     std::string line;
+
+    // Ensures file can be opened
     if (!infile) {
         std::cerr << "Failed to open processes.txt" << std::endl;
         std::lock_guard<std::mutex> lock(mtx);
-        doneProducing = true;
-        cv.notify_all();
+        producerDone = true;
+        cv.notify_all(); // Notify consumer to ublock
         return;
     }
 
-    std::getline(infile, line);
+    std::getline(infile, line); // Skip Header
 
     while (std::getline(infile, line)) {
         std::istringstream iss(line);
@@ -49,19 +53,17 @@ void producer(const std::string& filename) {
             continue;
         }
 
-        std::unique_lock<std::mutex> lock(mtx); 
-        cv.wait(lock, [] {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [] { // Wait until there is space in the buffer
             return processQueue.size() < MAX_BUFFER_SIZE;
         });
 
-        processQueue.push(p);
-        // Add output here for producer
-
+        processQueue.push(p); // Add Process to queue
         cv.notify_all();
     }
 
     std::lock_guard<std::mutex> lock(mtx);
-    doneProducing = true;
+    producerDone = true;
     cv.notify_all();
 }
 
@@ -69,23 +71,26 @@ void producer(const std::string& filename) {
 void consumer (int id) {
     while (true) {
         Process p;
-        { // Creats block scope
+        { // Creats block scope for threads
             std::unique_lock<std::mutex> lock(mtx);
+            // Wait until the queue is not empty or production is done
             cv.wait(lock, [] {
-                return !processQueue.empty() || doneProducing;
+                return !processQueue.empty() || producerDone;
             });
 
-            if (processQueue.empty() && doneProducing) {
+            // Exits thread
+            if (processQueue.empty() && producerDone) {
                 return;
             }
 
-            p = processQueue.front();
+            p = processQueue.front(); // Holds data
             processQueue.pop();
-            cv.notify_all();
+            cv.notify_all(); // Notify producer that space is available
         }
-
+        // Simulate delay for arrival time
         std::this_thread::sleep_for(std::chrono::seconds(p.arrivalTime));
         std::cout << "[Consumer " << id << "] Started Process " << p.pid << std::endl;
+        // Simulate CPU burst time
         std::this_thread::sleep_for(std::chrono::seconds(p.burstTime));
         std::cout << "[Consumer " << id << "] Finished Process " << p.pid << "\n";
     }
@@ -94,7 +99,7 @@ void consumer (int id) {
 int main() {
     const int NUM_CONSUMERS = 3;
 
-    std::thread prodThread(producer, "processes.txt");
+    std::thread prodThread(producer, "processes.txt"); // Start producer thread
 
     std::vector<std::thread> consumers;
     for (int i = 0; i < NUM_CONSUMERS; ++i) {
