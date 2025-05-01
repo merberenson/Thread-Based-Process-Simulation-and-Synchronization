@@ -8,6 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 
+//struct to hold process information
 struct Process {
     int pid;
     int arrivalTime;
@@ -18,11 +19,11 @@ struct Process {
 // Global Variables
 static std::chrono::time_point<std::chrono::steady_clock> programStart;
 const size_t MAX_BUFFER_SIZE = 5;
-std::queue<Process> processQueue; 
+std::queue<Process> processQueue; //Shared queue for processes
 std::mutex mtx; // For queue synchronization
 std::mutex cout_mtx; // For output synchronization
 std::condition_variable cv_producer, cv_consumer;
-bool producerDone = false;
+bool producerDone = false; //Flag indicating if producer is finished
 
 
 // Prints Consumer # message
@@ -33,6 +34,7 @@ void printConsumerProcess(int consumer_id, const Process& p, const std::string& 
               << elapsed << ")" <<std::endl;
 }
 
+//Simulate the execution of a process 
 void simulateProcess(const Process& p) {
     // Calculate how much time has elapsed since start of program
     auto now = std::chrono::steady_clock::now();
@@ -74,7 +76,7 @@ void producer(const std::string& filename) {
         std::istringstream iss(line);
         Process p;
         if (!(iss >> p.pid >> p.arrivalTime >> p.burstTime >> p.priority)) {
-            continue;
+            continue; //skip malformed lines
         }
 
         std::unique_lock<std::mutex> lock(mtx);
@@ -83,15 +85,15 @@ void producer(const std::string& filename) {
         });
 
         processQueue.push(p); // Add Process to queue
-        cv_consumer.notify_all();
+        cv_consumer.notify_all(); //notify waiting consumers
     }
 
     std::lock_guard<std::mutex> lock(mtx);
     producerDone = true;
-    cv_consumer.notify_all();
+    cv_consumer.notify_all(); //notify consumers to finish
 }
 
-
+//consumer function to process items from the queue
 void consumer (int id) {
     while (true) {
         Process p;
@@ -124,7 +126,7 @@ void consumer (int id) {
         // Print Consumer statements
         printConsumerProcess(id, p, "started", elapsed);
         
-        std::this_thread::sleep_for(std::chrono::seconds(p.burstTime));
+        std::this_thread::sleep_for(std::chrono::seconds(p.burstTime)); //simulate work
         
         now = std::chrono::steady_clock::now();
         elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - programStart).count();
@@ -229,7 +231,7 @@ int main() {
             return 1;
         }
     
-        std::getline(infile, line);
+        std::getline(infile, line); //skip header
     
         while (std::getline(infile, line)) {
             std::istringstream iss(line);
